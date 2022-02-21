@@ -1,7 +1,9 @@
 package br.com.kym.todolist.web.filter
 
-import br.com.kym.todolist.domain.generator.JWTGenerator
+import br.com.kym.todolist.domain.provider.JWTTokenProvider
 import org.springframework.http.HttpHeaders
+import org.springframework.security.core.Authentication
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 import javax.servlet.FilterChain
@@ -10,7 +12,7 @@ import javax.servlet.http.HttpServletResponse
 
 @Component
 class JwtFilter(
-    private val jwtGenerator: JWTGenerator
+    private val jwtGenerator: JWTTokenProvider
 ) : OncePerRequestFilter() {
 
     override fun doFilterInternal(
@@ -29,5 +31,11 @@ class JwtFilter(
             chain.doFilter(request, response);
             return
         }
+
+        val auth: Authentication = jwtGenerator.authentication(token)
+        SecurityContextHolder.getContext().authentication = auth
+
+        chain.doFilter(request, response);
     }
 }
+

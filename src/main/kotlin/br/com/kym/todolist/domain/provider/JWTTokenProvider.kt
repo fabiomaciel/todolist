@@ -1,14 +1,17 @@
-package br.com.kym.todolist.domain.generator
+package br.com.kym.todolist.domain.provider
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import com.auth0.jwt.exceptions.TokenExpiredException
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+import org.springframework.security.core.Authentication
 import org.springframework.stereotype.Component
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.*
 
 @Component
-class JWTGenerator {
+class JWTTokenProvider {
     private val secret = "SECRET"
     private val ISSUER = "TODOLISTAPP"
     private val SUBJECT_USER_DETAILS = "User Details"
@@ -18,7 +21,7 @@ class JWTGenerator {
 
     fun generateToken(login: String): String {
         val id = UUID.randomUUID().toString()
-        val expirationDate = LocalDateTime.now().plusSeconds(30)
+        val expirationDate = LocalDateTime.now().plusMinutes(30)
         idMap[id] = expirationDate
 
         return JWT.create()
@@ -37,11 +40,25 @@ class JWTGenerator {
             .withIssuer(ISSUER)
             .build()
 
-        val verify = verifier.verify(token)
-        val expire = idMap[verify.id]
-        return expire?.let {
-            expire.isAfter(LocalDateTime.now())
-        } ?: false
+        return try {
+            val verify = verifier.verify(token)
+            val expire = idMap[verify.id]
+            expire?.let {
+                expire.isAfter(LocalDateTime.now())
+            } ?: false
+        } catch (ex: TokenExpiredException) {
+            false
+        }
+    }
+
+    fun authentication(token: String): Authentication {
+        val verifier = JWT.require(algorithm())
+            .withSubject(SUBJECT_USER_DETAILS)
+            .withIssuer(ISSUER)
+            .build()
+        val jwt = verifier.verify(token)
+        val principal = jwt.claims[CLAIM]
+        return UsernamePasswordAuthenticationToken(principal, token, listOf())
     }
 
     private fun algorithm() = Algorithm.HMAC256(secret)
